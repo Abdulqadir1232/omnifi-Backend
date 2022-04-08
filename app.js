@@ -6,14 +6,15 @@ const passport = require("passport");
 const flash = require("express-flash");
 const session = require("express-session");
 require("dotenv").config();
-const {generateAccessToken} = require("./middleware/auth")
+const { generateAccessToken } = require("./middleware/auth");
+const res = require("express/lib/response");
 const app = express();
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
 
-const initializePassport = require("./passportConfig");
+// const initializePassport = require("./passportConfig");
 
-initializePassport(passport);
+// initializePassport(passport);
 
 // Middleware
 
@@ -45,7 +46,7 @@ app.get("/", (req, res) => {
 
 app.post("/users/register", async (req, res) => {
   try {
-    const { firstname,lastname, email, password } = req.body;
+    const { firstname, lastname, email, password } = req.body;
     const userExist = await new Promise((resolve, reject) => {
       pool.query('SELECT * from users1 where email = ($1)', [email], (error, result) => {
         if (error) {
@@ -58,7 +59,7 @@ app.post("/users/register", async (req, res) => {
       return res.send("User already exists");
     }
     await new Promise((resolve, reject) => {
-      pool.query('INSERT INTO users1 (firstname,lastname,email,password) VALUES ($1, $2, $3, $4)', [firstname,lastname, email,password], (error, result) => {
+      pool.query('INSERT INTO users1 (firstname,lastname,email,password) VALUES ($1, $2, $3, $4)', [firstname, lastname, email, password], (error, result) => {
         if (error) {
           throw error
         }
@@ -72,51 +73,32 @@ app.post("/users/register", async (req, res) => {
 
 });
 
-
-
-
-
-
-
-
-
-
-
 // login api
 app.post("/users/login", async (req, res) => {
   try {
     const { email, password } = req.body;
-    let user=  await new Promise((resolve, reject) => {
-    pool.query('SELECT * from users1 where (email,password) = ($1,$2)', [email,password], (error, result) => {
-      if (error) {
+    let user = await new Promise((resolve, reject) => {
+      pool.query('SELECT * from users1 where (email,password) = ($1, $2)', [email, password], (error, result) => {
+        if (error) {
 
-        throw error;
-      }
-      console.log(result.rows,"rows are here");
-       resolve(result.rows)
+          throw error;
+        }
+        resolve(result.rows)
+      })
     })
-  })
-  console.log(user)
-   
-    if(user[0].email==email){
-      console.log(user[0])
-      if(user[0].password==password){
-    let accessToken=    generateAccessToken({
-          userId:user[0].id,
-          firstName:user[0].firstname
-        })
-        console.log(accessToken,'accesstoken');
-        return res.send({accessToken});
-      }
-      else{
-        return res.send("Your pasword is wrong");
-      }
+    if (user.length == 0) {
+      return res.send("User not found")
+    }
+    if (user[0].email !== email || user[0].password !== password) {
+      return res.send("Invalid username or password.")
+    }
+    let accessToken = generateAccessToken({
+      userId: user[0].id,
+      firstName: user[0].firstname,
+      email: user[0].email
+    })
+    return res.send({ accessToken });
 
-    }
-    else{
-      return res.send("Your email is invalid");
-    }
- 
   } catch (error) {
     console.log(error)
     return res.send("error")
